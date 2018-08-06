@@ -14,8 +14,8 @@ var lineLimit int
 var stmtLimit int
 
 func init() {
-	flag.IntVar(&stmtLimit, `s`, 20, `The maximum number of statements allowed in a function`)
-	flag.IntVar(&lineLimit, `l`, 35, `The maximum number of lines allowed in a function`)
+	flag.IntVar(&stmtLimit, `s`, 35, `The maximum number of statements allowed in a function`)
+	flag.IntVar(&lineLimit, `l`, 50, `The maximum number of lines allowed in a function`)
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
