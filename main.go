@@ -18,28 +18,31 @@ func init() {
 	flag.IntVar(&lineLimit, `l`, 50, `The maximum number of lines allowed in a function`)
 	flag.Parse()
 
-	if len(flag.Args()) != 1 {
-		fmt.Println(`Usage:`, os.Args[0], `[options] target`)
+	if len(flag.Args()) == 0 {
+		fmt.Println(`Usage:`, os.Args[0], `[options] target1 [target2]...`)
 		os.Exit(2)
 	}
 }
 
-var fset = token.NewFileSet()
+var fset *token.FileSet
 
 func main() {
-	pkgs, err := parser.ParseDir(fset, flag.Arg(0), nil, 0)
-	if err != nil {
-		panic(err)
-	}
-	for _, pkg := range pkgs {
-		for _, file := range pkg.Files {
-			for _, f := range file.Decls {
-				decl, ok := f.(*ast.FuncDecl)
-				if !ok {
-					continue
+	for _, arg := range flag.Args() {
+		fset = token.NewFileSet()
+		pkgs, err := parser.ParseDir(fset, arg, nil, 0)
+		if err != nil {
+			panic(err)
+		}
+		for _, pkg := range pkgs {
+			for _, file := range pkg.Files {
+				for _, f := range file.Decls {
+					decl, ok := f.(*ast.FuncDecl)
+					if !ok {
+						continue
+					}
+					_ = makeStmtMessage(decl.Name, parseStmts(decl.Body.List)) ||
+						makeLineMessage(decl.Name, getLines(decl))
 				}
-				_ = makeStmtMessage(decl.Name, parseStmts(decl.Body.List)) ||
-					makeLineMessage(decl.Name, getLines(decl))
 			}
 		}
 	}
