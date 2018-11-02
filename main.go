@@ -52,8 +52,9 @@ func makeLineMessage(funcInfo *ast.Ident, lines int) bool {
 	if lines <= lineLimit {
 		return false
 	}
-	fmt.Printf("%v:Function is too long (%d > %d)\n",
+	fmt.Printf("%v:Function '%s' is too long (%d > %d)\n",
 		fset.Position(funcInfo.Pos()),
+		funcInfo.Name,
 		lines, lineLimit)
 	return true
 }
@@ -62,14 +63,15 @@ func makeStmtMessage(funcInfo *ast.Ident, stmts int) bool {
 	if stmts <= stmtLimit {
 		return false
 	}
-	fmt.Printf("%v:Function has too many statements (%d > %d)\n",
+	fmt.Printf("%v:Function '%s' has too many statements (%d > %d)\n",
 		fset.Position(funcInfo.Pos()),
+		funcInfo.Name,
 		stmts, stmtLimit)
 	return true
 }
 
 func getLines(f *ast.FuncDecl) int {
-	return fset.Position(f.End()).Line - fset.Position(f.Pos()).Line - 2
+	return fset.Position(f.End()).Line - fset.Position(f.Pos()).Line - 1
 }
 
 func parseStmts(s []ast.Stmt) (total int) {
