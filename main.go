@@ -1,76 +1,65 @@
-package main
+package funlen
 
 import (
-	"flag"
 	"fmt"
 	"go/ast"
-	"go/parser"
 	"go/token"
-	"os"
 	"reflect"
 )
 
-var lineLimit int
-var stmtLimit int
+const defaultLineLimit = 60
+const defaultStmtLimit = 40
 
-func init() {
-	flag.IntVar(&stmtLimit, `s`, 35, `The maximum number of statements allowed in a function`)
-	flag.IntVar(&lineLimit, `l`, 50, `The maximum number of lines allowed in a function`)
-	flag.Parse()
-
-	if len(flag.Args()) == 0 {
-		fmt.Println(`Usage:`, os.Args[0], `[options] target1 [target2]...`)
-		os.Exit(2)
+// Run runs this linter on the provided code
+func Run(file *ast.File, fset *token.FileSet, lineLimit, stmtLimit int) []Message {
+	if lineLimit == 0 {
+		lineLimit = defaultLineLimit
 	}
-}
+	if stmtLimit == 0 {
+		stmtLimit = defaultStmtLimit
+	}
 
-var fset *token.FileSet
-
-func main() {
-	for _, arg := range flag.Args() {
-		fset = token.NewFileSet()
-		pkgs, err := parser.ParseDir(fset, arg, nil, 0)
-		if err != nil {
-			panic(err)
+	var msgs []Message
+	for _, f := range file.Decls {
+		decl, ok := f.(*ast.FuncDecl)
+		if !ok {
+			continue
 		}
-		for _, pkg := range pkgs {
-			for _, file := range pkg.Files {
-				for _, f := range file.Decls {
-					decl, ok := f.(*ast.FuncDecl)
-					if !ok {
-						continue
-					}
-					_ = makeStmtMessage(decl.Name, parseStmts(decl.Body.List)) ||
-						makeLineMessage(decl.Name, getLines(decl))
-				}
-			}
+
+		if stmts := parseStmts(decl.Body.List); stmts > stmtLimit {
+			msgs = append(msgs, makeStmtMessage(fset, decl.Name, stmts, stmtLimit))
+			continue
+		}
+
+		if lines := getLines(fset, decl); lines > lineLimit {
+			msgs = append(msgs, makeLineMessage(fset, decl.Name, lines, lineLimit))
 		}
 	}
+
+	return msgs
 }
 
-func makeLineMessage(funcInfo *ast.Ident, lines int) bool {
-	if lines <= lineLimit {
-		return false
-	}
-	fmt.Printf("%v:Function '%s' is too long (%d > %d)\n",
+// Message contains a message
+type Message struct {
+	Pos     token.Position
+	Message string
+}
+
+func makeLineMessage(fset *token.FileSet, funcInfo *ast.Ident, lines, lineLimit int) Message {
+	return Message{
 		fset.Position(funcInfo.Pos()),
-		funcInfo.Name,
-		lines, lineLimit)
-	return true
-}
-
-func makeStmtMessage(funcInfo *ast.Ident, stmts int) bool {
-	if stmts <= stmtLimit {
-		return false
+		fmt.Sprintf("Function '%s' is too long (%d > %d)\n", funcInfo.Name, lines, lineLimit),
 	}
-	fmt.Printf("%v:Function '%s' has too many statements (%d > %d)\n",
-		fset.Position(funcInfo.Pos()),
-		funcInfo.Name,
-		stmts, stmtLimit)
-	return true
 }
 
-func getLines(f *ast.FuncDecl) int {
+func makeStmtMessage(fset *token.FileSet, funcInfo *ast.Ident, stmts, stmtLimit int) Message {
+	return Message{
+		fset.Position(funcInfo.Pos()),
+		fmt.Sprintf("Function '%s' has too many statements (%d > %d)\n", funcInfo.Name, stmts, stmtLimit),
+	}
+}
+
+func getLines(fset *token.FileSet, f *ast.FuncDecl) int { // nolint: interfacer
 	return fset.Position(f.End()).Line - fset.Position(f.Pos()).Line - 1
 }
 
