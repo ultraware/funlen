@@ -12,6 +12,13 @@ const defaultStmtLimit = 40
 
 // Run runs this linter on the provided code
 func Run(file *ast.File, fset *token.FileSet, lineLimit, stmtLimit int) []Message {
+	var msgs []Message
+
+	// exit early as we do not want to enforce opinionated 60:40 default
+	// limits onto all users
+	if lineLimit == 0 && stmtLimit == 0 {
+		return msgs
+	}
 	if lineLimit == 0 {
 		lineLimit = defaultLineLimit
 	}
@@ -19,7 +26,6 @@ func Run(file *ast.File, fset *token.FileSet, lineLimit, stmtLimit int) []Messag
 		stmtLimit = defaultStmtLimit
 	}
 
-	var msgs []Message
 	for _, f := range file.Decls {
 		decl, ok := f.(*ast.FuncDecl)
 		if !ok || decl.Body == nil { // decl.Body can be nil for e.g. cgo
