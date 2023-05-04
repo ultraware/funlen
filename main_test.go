@@ -40,18 +40,50 @@ func TestRunTable(t *testing.T) {
 	for name, test := range testcases {
 		t.Run(name, func(t *testing.T) {
 			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, "", test.input, parser.AllErrors)
+			f, err := parser.ParseFile(fset, "", test.input, parser.ParseComments)
 
 			if err != nil {
 				t.Error("\nActual: ", err, "\n Did not expected error")
 			}
 
-			r := Run(f, fset, test.lineLimit, test.stmtLimit)
+			r := Run(f, fset, test.lineLimit, test.stmtLimit, false)
 			actual := r[0].Message
 
 			if !strings.Contains(actual, test.expected) {
 				t.Error("\nActual: ", actual, "\nExpected: ", test.expected)
 			}
 		})
+	}
+}
+
+func TestRunIgnoresComments(t *testing.T) {
+
+	input := `package main
+	func main() {
+	// Comment 1
+	// Comment 2
+	// Comment 3
+	print("Hello, world!")}
+	// Comment Doc
+	func unittest() {
+	// Comment 1
+	// Comment 2
+	print("Hello, world!")}
+	// Comment 3`
+
+	lineLimit := 2
+	stmtLimit := 2
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "", input, parser.ParseComments)
+
+	if err != nil {
+		t.Error("\nActual: ", err, "\n Did not expected error")
+	}
+
+	r := Run(f, fset, lineLimit, stmtLimit, true)
+
+	if len(r) > 0 {
+		t.Error("\nActual: ", r, "\nExpected no lint errors")
 	}
 }
