@@ -1,6 +1,6 @@
 # Funlen linter
 
-Funlen is a linter that checks for long functions. It can checks both on the number of lines and the number of statements.
+Funlen is a linter that checks for long functions. It can check both on the number of lines and the number of statements.
 
 The default limits are 60 lines and 40 statements. You can configure these.
 
