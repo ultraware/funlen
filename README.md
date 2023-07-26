@@ -15,3 +15,33 @@ The default values are used internally, but might to be adjusted for your specif
 ## Installation
 
 Funlen is included in [golangci-lint](https://github.com/golangci/golangci-lint/). Install it and enable funlen.
+
+# Exclude for tests
+
+golangci-lint offers a way to exclude linters in certain cases. More info can be found here: https://golangci-lint.run/usage/configuration/#issues-configuration.
+
+## Disable funlen for \_test.go files
+
+You can utilize the issues configuration in `.golangci.yml` to exclude the funlen linter for all test files:
+
+```yaml
+issues:
+  exclude-rules:
+    # disable funlen for all _test.go files
+    - path: _test.go
+      linters:
+        - funlen
+```
+
+## Disable funlen only for Test funcs
+
+If you want to keep funlen enabled for example in helper functions in test files but disable it specifically for Test funcs, you can use the following configuration:
+
+```yaml
+issues:
+  exclude-rules:
+    # disable funlen for test funcs
+    - source: "^func Test"
+      linters:
+        - funlen
+```
