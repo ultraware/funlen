@@ -35,6 +35,22 @@ func TestRunTable(t *testing.T) {
 			lineLimit: 1,
 			stmtLimit: 10,
 		},
+		"too-many-statements-inline-func": {
+			input: `package main
+	func main() {
+	print("Hello, world!")
+	if true {
+		y := []int{1,2,3,4}
+		for k, v := range y {
+			f := func() { print("test") }
+			f()
+		}
+	}
+	print("Hello, world!")}`,
+			expected:  "Function 'main' has too many statements (8 > 1)",
+			lineLimit: 1,
+			stmtLimit: 1,
+		},
 	}
 
 	for name, test := range testcases {
