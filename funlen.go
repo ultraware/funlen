@@ -1,10 +1,11 @@
 package funlen
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
 	"reflect"
+
+	"golang.org/x/tools/go/analysis"
 )
 
 const (
@@ -12,39 +13,49 @@ const (
 	defaultStmtLimit = 40
 )
 
-// Run runs this linter on the provided code
-func Run(file *ast.File, fset *token.FileSet, lineLimit int, stmtLimit int, ignoreComments bool) []Message {
-	if lineLimit == 0 {
-		lineLimit = defaultLineLimit
+func NewAnalyzer(lineLimit int, stmtLimit int, ignoreComments bool) *analysis.Analyzer {
+	return &analysis.Analyzer{
+		Name: "funlen",
+		Doc:  "Checks for long functions.",
+		URL:  "https://github.com/ultraware/funlen",
+		Run: func(pass *analysis.Pass) (any, error) {
+			run(pass, lineLimit, stmtLimit, ignoreComments)
+			return nil, nil
+		},
 	}
-	if stmtLimit == 0 {
-		stmtLimit = defaultStmtLimit
-	}
+}
 
-	cmap := ast.NewCommentMap(fset, file, file.Comments)
-
-	var msgs []Message
-	for _, f := range file.Decls {
-		decl, ok := f.(*ast.FuncDecl)
-		if !ok || decl.Body == nil { // decl.Body can be nil for e.g. cgo
-			continue
+func run(pass *analysis.Pass, lineLimit int, stmtLimit int, ignoreComments bool) {
+	for _, file := range pass.Files {
+		if lineLimit == 0 {
+			lineLimit = defaultLineLimit
+		}
+		if stmtLimit == 0 {
+			stmtLimit = defaultStmtLimit
 		}
 
-		if stmtLimit > 0 {
-			if stmts := parseStmts(decl.Body.List); stmts > stmtLimit {
-				msgs = append(msgs, makeStmtMessage(fset, decl.Name, stmts, stmtLimit))
+		cmap := ast.NewCommentMap(pass.Fset, file, file.Comments)
+
+		for _, f := range file.Decls {
+			decl, ok := f.(*ast.FuncDecl)
+			if !ok || decl.Body == nil { // decl.Body can be nil for e.g. cgo
 				continue
 			}
-		}
 
-		if lineLimit > 0 {
-			if lines := getLines(fset, decl, cmap.Filter(decl), ignoreComments); lines > lineLimit {
-				msgs = append(msgs, makeLineMessage(fset, decl.Name, lines, lineLimit))
+			if stmtLimit > 0 {
+				if stmts := parseStmts(decl.Body.List); stmts > stmtLimit {
+					pass.Reportf(decl.Name.Pos(), "Function '%s' has too many statements (%d > %d)", decl.Name.Name, stmts, stmtLimit)
+					continue
+				}
+			}
+
+			if lineLimit > 0 {
+				if lines := getLines(pass.Fset, decl, cmap.Filter(decl), ignoreComments); lines > lineLimit {
+					pass.Reportf(decl.Name.Pos(), "Function '%s' is too long (%d > %d)", decl.Name.Name, lines, lineLimit)
+				}
 			}
 		}
 	}
-
-	return msgs
 }
 
 // Message contains a message
@@ -53,21 +64,7 @@ type Message struct {
 	Message string
 }
 
-func makeLineMessage(fset *token.FileSet, funcInfo *ast.Ident, lines, lineLimit int) Message {
-	return Message{
-		fset.Position(funcInfo.Pos()),
-		fmt.Sprintf("Function '%s' is too long (%d > %d)\n", funcInfo.Name, lines, lineLimit),
-	}
-}
-
-func makeStmtMessage(fset *token.FileSet, funcInfo *ast.Ident, stmts, stmtLimit int) Message {
-	return Message{
-		fset.Position(funcInfo.Pos()),
-		fmt.Sprintf("Function '%s' has too many statements (%d > %d)\n", funcInfo.Name, stmts, stmtLimit),
-	}
-}
-
-func getLines(fset *token.FileSet, f *ast.FuncDecl, cmap ast.CommentMap, ignoreComments bool) int { // nolint: interfacer
+func getLines(fset *token.FileSet, f *ast.FuncDecl, cmap ast.CommentMap, ignoreComments bool) int {
 	var lineCount int
 	var commentCount int
 
