@@ -14,6 +14,14 @@ const (
 )
 
 func NewAnalyzer(lineLimit int, stmtLimit int, ignoreComments bool) *analysis.Analyzer {
+	if lineLimit == 0 {
+		lineLimit = defaultLineLimit
+	}
+
+	if stmtLimit == 0 {
+		stmtLimit = defaultStmtLimit
+	}
+
 	return &analysis.Analyzer{
 		Name: "funlen",
 		Doc:  "Checks for long functions.",
@@ -27,13 +35,6 @@ func NewAnalyzer(lineLimit int, stmtLimit int, ignoreComments bool) *analysis.An
 
 func run(pass *analysis.Pass, lineLimit int, stmtLimit int, ignoreComments bool) {
 	for _, file := range pass.Files {
-		if lineLimit == 0 {
-			lineLimit = defaultLineLimit
-		}
-		if stmtLimit == 0 {
-			stmtLimit = defaultStmtLimit
-		}
-
 		cmap := ast.NewCommentMap(pass.Fset, file, file.Comments)
 
 		for _, f := range file.Decls {
@@ -58,24 +59,17 @@ func run(pass *analysis.Pass, lineLimit int, stmtLimit int, ignoreComments bool)
 	}
 }
 
-// Message contains a message
-type Message struct {
-	Pos     token.Position
-	Message string
-}
-
 func getLines(fset *token.FileSet, f *ast.FuncDecl, cmap ast.CommentMap, ignoreComments bool) int {
-	var lineCount int
-	var commentCount int
-
-	lineCount = fset.Position(f.End()).Line - fset.Position(f.Pos()).Line - 1
+	lineCount := fset.Position(f.End()).Line - fset.Position(f.Pos()).Line - 1
 
 	if !ignoreComments {
 		return lineCount
 	}
 
+	var commentCount int
+
 	for _, c := range cmap.Comments() {
-		// If the CommenGroup's lines are inside the function
+		// If the CommentGroup's lines are inside the function
 		// count how many comments are in the CommentGroup
 		if (fset.Position(c.Pos()).Line > fset.Position(f.Pos()).Line) &&
 			(fset.Position(c.End()).Line < fset.Position(f.End()).Line) {
@@ -115,7 +109,7 @@ func checkInlineFunc(stmt ast.Expr) int {
 	return 0
 }
 
-func parseBodyListStmts(t interface{}) int {
+func parseBodyListStmts(t any) int {
 	i := reflect.ValueOf(t).Elem().FieldByName(`Body`).Elem().FieldByName(`List`).Interface()
 	return parseStmts(i.([]ast.Stmt))
 }
